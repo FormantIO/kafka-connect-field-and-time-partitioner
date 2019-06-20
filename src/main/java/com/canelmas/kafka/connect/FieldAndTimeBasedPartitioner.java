@@ -41,6 +41,7 @@ public final class FieldAndTimeBasedPartitioner<T> extends TimeBasedPartitioner<
     private static final Logger log = LoggerFactory.getLogger(FieldAndTimeBasedPartitioner.class);
 
     private long partitionDurationMs;
+    private String partitionField;
     private DateTimeFormatter formatter;
     private TimestampExtractor timestampExtractor;
 
@@ -49,6 +50,7 @@ public final class FieldAndTimeBasedPartitioner<T> extends TimeBasedPartitioner<
     protected void init(long partitionDurationMs, String pathFormat, Locale locale, DateTimeZone timeZone, Map<String, Object> config) {
 
         this.delim = (String)config.get("directory.delim");
+        this.partitionField = (String)config.get("partition.field");
         this.partitionDurationMs = partitionDurationMs;
 
         try {
@@ -57,7 +59,7 @@ public final class FieldAndTimeBasedPartitioner<T> extends TimeBasedPartitioner<
             this.timestampExtractor = this.newTimestampExtractor((String)config.get("timestamp.extractor"));
             this.timestampExtractor.configure(config);
 
-            this.partitionFieldExtractor = new PartitionFieldExtractor((String)config.get("partition.field"));
+            this.partitionFieldExtractor = new PartitionFieldExtractor(this.partitionField);
 
         } catch (IllegalArgumentException e) {
 
@@ -99,7 +101,7 @@ public final class FieldAndTimeBasedPartitioner<T> extends TimeBasedPartitioner<
 
     }
 
-    private String encodedPartitionForFieldAndTime(SinkRecord sinkRecord, Long timestamp, String partitionField) {
+    private String encodedPartitionForFieldAndTime(SinkRecord sinkRecord, Long timestamp, String partitionFieldValue) {
 
         if (timestamp == null) {
 
@@ -107,16 +109,16 @@ public final class FieldAndTimeBasedPartitioner<T> extends TimeBasedPartitioner<
             log.error(msg);
             throw new ConnectException(msg);
 
-        } else if (partitionField == null) {
+        } else if (partitionFieldValue == null) {
 
-            String msg = "Unable to determine partition field using partition.field '" + partitionField  + "' for record: " + sinkRecord;
+            String msg = "Unable to determine partition field using partition.field '" + partitionFieldValue  + "' for record: " + sinkRecord;
             log.error(msg);
             throw new ConnectException(msg);
 
         }  else {
 
             DateTime bucket = new DateTime(getPartition(this.partitionDurationMs, timestamp.longValue(), this.formatter.getZone()));
-            return partitionField + this.delim + bucket.toString(this.formatter);
+            return this.partitionField + "=" + partitionFieldValue + this.delim + bucket.toString(this.formatter);
             
         }
     }
